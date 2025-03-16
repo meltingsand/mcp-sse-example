@@ -1,4 +1,4 @@
-# MCP Server Side Event (SSE) - Example
+# MCP Server-Sent Events (SSE) - Example
 
 A reference implementation for integrating Model Context Protocol (MCP) capabilities into web applications using Server-Sent Events (SSE) as the transport layer.
 
