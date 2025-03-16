@@ -57,36 +57,101 @@ server.tool(
 
 // TODO: Add prompts
 
+// Create Express app
 const app = express();
-// Add CORS middleware
+
+// Apply middlewares
 app.use(cors());
 app.use(express.json());
 
-let transport: SSEServerTransport;
+// Define a type-safe Map for transports
+const transports = new Map<string, SSEServerTransport>();
 
-// Add a root route handler
+// Root route handler
 app.get("/", (req, res) => {
   res.json({
     status: "online",
     name: "MCP SSE Example Server",
     endpoints: {
       sse: "/sse",
-      messages: "/messages"
+      messages: "/messages",
     },
-    docs: "https://modelcontextprotocol.io/docs"
+    docs: "https://modelcontextprotocol.io/docs",
   });
 });
 
-app.get("/sse", async (req, res) => {
-  transport = new SSEServerTransport("/messages", res);
-  await server.connect(transport);
+// Debug endpoint
+app.get("/debug", (req, res) => {
+  res.json({
+    headers: req.headers,
+    method: req.method,
+    url: req.url,
+    query: req.query,
+  });
 });
 
-app.post("/messages", async (req, res) => {
-  // Note: to support multiple simultaneous connections, these messages will
-  // need to be routed to a specific matching transport. (This logic isn't
-  // implemented here, for simplicity.)
-  await transport.handlePostMessage(req, res);
+// SSE route handler
+app.get("/sse", (req, res) => {
+  // Set headers required for SSE
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no"); // For NGINX
+
+  // Generate a unique ID for this connection
+  const connectionId = Date.now().toString();
+  console.log(`New SSE connection established: ${connectionId}`);
+
+  // Create and store the transport
+  const sseTransport = new SSEServerTransport("/messages", res);
+  transports.set(connectionId, sseTransport);
+
+  // Clean up on connection close
+  req.on("close", () => {
+    console.log(`Connection closed: ${connectionId}`);
+    transports.delete(connectionId);
+  });
+
+  // Connect the transport to the server (don't use await in the route handler)
+  server
+    .connect(sseTransport)
+    .then(() => {
+      console.log(`Server connected to transport: ${connectionId}`);
+    })
+    .catch((error) => {
+      console.error(`Error connecting server to transport: ${error.message}`);
+      res.end();
+    });
 });
 
-app.listen(3001);
+// Messages route handler
+app.post("/messages", (req, res) => {
+  // Get the transport ID from the request
+  const transportId =
+    (req.query.connectionId as string) || Array.from(transports.keys())[0];
+  const transport = transports.get(transportId);
+
+  if (!transport) {
+    console.error(`No transport found for ID: ${transportId}`);
+    return res.status(400).json({ error: "No active SSE connection found" });
+  }
+
+  // Process the message (don't use await in the route handler)
+  transport
+    .handlePostMessage(req, res)
+    .then(() => {
+      console.log(
+        `Successfully processed message for connection: ${transportId}`
+      );
+    })
+    .catch((error) => {
+      console.error(`Error processing message: ${error.message}`);
+      res.status(500).json({ error: error.message });
+    });
+});
+
+// Start server
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => {
+  console.log(`MCP SSE Server running on port ${PORT}`);
+});
