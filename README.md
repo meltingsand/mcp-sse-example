@@ -1,30 +1,25 @@
-# MCP-WebAI
+# MCP Server Side Event (SSE) - Example
 
-A framework for integrating Model Context Protocol (MCP) capabilities into web applications, allowing web-based AI interfaces to leverage MCP tools and services.
+A reference implementation for integrating Model Context Protocol (MCP) capabilities into web applications using Server-Sent Events (SSE) as the transport layer.
 
 ## Overview
 
-MCP-WebAI bridges the gap between web applications and the Model Context Protocol ecosystem. It enables web-based AI interfaces to use the same powerful tooling capabilities available to desktop MCP clients like Claude Desktop, but within your browser.
+This project demonstrates how to create an MCP server that communicates with clients using the SSE transport protocol. It enables web applications to access powerful MCP capabilities while maintaining a persistent connection for real-time communication with AI models.
 
 Key features:
 
-- Run MCP tools directly in web applications
-- Connect to existing MCP servers from web interfaces
-- Build web UIs that seamlessly integrate with AI tooling
-- Extend AI models with web-based capabilities
+- Implement MCP servers using Server-Sent Events for web compatibility
+- Create custom MCP tools that can be accessed from web clients
+- Connect any MCP-compatible client to your SSE-based server
+- Extend AI assistants with web-based capabilities through standardized protocols
 
-## Project Structure
+## What is MCP SSE?
 
-```
-.
-├── frontend            # Web interface components
-│   ├── public          # Static assets
-│   └── src             # Frontend source code
-│       ├── assets      # Images, styles, and other assets
-│       └── components  # React/UI components
-├── instructions        # Documentation and guides
-└── src                 # Server-side MCP implementation
-```
+The Model Context Protocol (MCP) supports multiple transport mechanisms, with SSE being ideal for web applications:
+
+- **Server-Sent Events (SSE)**: A web standard for establishing a unidirectional connection where servers can push updates to clients
+- **MCP over SSE**: Implements the MCP protocol using SSE as the transport layer, enabling web clients to interact with MCP servers
+- **Real-time AI interactions**: Allows continuous streaming of AI responses while maintaining tool execution capabilities
 
 ## Getting Started
 
@@ -32,29 +27,26 @@ Key features:
 
 - Node.js (v18 or higher)
 - NPM or Yarn
-- An MCP-compatible AI service (Claude API, etc.)
+- A Brave Search API key for the example search tool
 
 ### Installation
 
 ```bash
 # Clone the repository
-git clone https://github.com/iamfiscus/mcp-webai.git
-cd mcp-webai
+git clone https://github.com/yourusername/mcp-sse-example.git
+cd mcp-sse-example
 
-# Install dependencies
+# Install backend dependencies
+cd backend
 npm install
-
-# Build the project
-npm run build
 ```
 
 ### Configuration
 
-Create a `.env` file in the root directory with your API credentials:
+Create a `.env` file in the backend directory with your API credentials:
 
 ```
-ANTHROPIC_API_KEY=your_api_key_here
-MCP_SERVER_PORT=3000
+BRAVE_API_KEY=your_api_key_here
 ```
 
 ## Usage
@@ -62,87 +54,87 @@ MCP_SERVER_PORT=3000
 ### Starting the Server
 
 ```bash
+# Build and start the server
+npm run build
 npm run start
 ```
 
-This will start both the MCP server and the web interface. The web UI will be available at `http://localhost:3000` by default.
+The MCP SSE server will be available at `http://localhost:3001`.
 
-### Starting Only the Backend
-
-To launch just the backend MCP server without the frontend:
+### Docker Deployment
 
 ```bash
-npm run start:backend
+# From the project root
+docker-compose up -d
 ```
 
-Or alternatively:
+## How It Works
+
+This implementation uses:
+
+1. **Express.js** as the web server
+2. **SSEServerTransport** from the MCP SDK to handle the SSE protocol
+3. **McpServer** to register and manage tools
+
+The server exposes two main endpoints:
+
+- `/sse` - For establishing SSE connections
+- `/messages` - For receiving messages from clients
+
+## Example Implementation
+
+The core server implementation:
+
+```typescript
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import express from "express";
+
+const server = new McpServer({
+  name: "Example SSE Server",
+  version: "1.0.0",
+});
+
+// Register tools
+server.tool("example_tool", { param: z.string() }, async ({ param }) => ({
+  content: [{ type: "text", text: `Processed: ${param}` }],
+}));
+
+const app = express();
+let transport: SSEServerTransport;
+
+app.get("/sse", async (req, res) => {
+  transport = new SSEServerTransport("/messages", res);
+  await server.connect(transport);
+});
+
+app.post("/messages", async (req, res) => {
+  await transport.handlePostMessage(req, res);
+});
+
+app.listen(3001);
+```
+
+## Compatible Clients
+
+Many MCP clients support the SSE transport protocol, including:
+
+- [Claude Desktop App](https://claude.ai/download)
+- [Continue](https://github.com/continuedev/continue)
+- [Cursor](https://cursor.com)
+- [LibreChat](https://github.com/danny-avila/LibreChat)
+- And many others listed at [modelcontextprotocol.io/clients](https://modelcontextprotocol.io/clients)
+
+## Debugging
+
+When debugging your MCP SSE implementation:
 
 ```bash
-cd src
-node server.js
+# Follow logs in real-time (for MacOS)
+tail -n 20 -F ~/Library/Logs/Claude/mcp*.log
 ```
 
-The backend server will be available at `http://localhost:3000/api` by default.
-
-### Connecting to Existing MCP Servers
-
-MCP-WebAI can connect to any existing MCP server. In your web application's configuration, specify the MCP server details:
-
-```javascript
-const mcpConfig = {
-  server: "http://localhost:8000", // Your MCP server address
-  tools: ["web_search", "code_execution"] // Tools to enable
-};
-```
-
-### Creating Web-Based MCP Tools
-
-You can create custom MCP tools that run in the browser:
-
-1. Create a new tool in the `src/tools` directory
-2. Implement the tool interface
-3. Register it with the MCP server
-
-Example:
-
-```javascript
-// src/tools/WebSearchTool.js
-export default class WebSearchTool {
-  name = "web_search";
-  description = "Search the web for information";
-  
-  async execute(params) {
-    const { query } = params;
-    // Implementation logic
-    return { results: [...] };
-  }
-}
-```
-
-## Web Integration Examples
-
-MCP-WebAI provides components to integrate MCP capabilities into your web UI:
-
-```jsx
-import { MCPProvider, useMCPTool } from 'mcp-webai';
-
-function SearchComponent() {
-  const { execute, loading, results } = useMCPTool('web_search');
-  
-  const handleSearch = async (query) => {
-    const results = await execute({ query });
-    // Handle results
-  };
-  
-  return (
-    <div>
-      <input onChange={(e) => handleSearch(e.target.value)} />
-      {loading && <p>Searching...</p>}
-      {results && results.map(item => <div>{item.title}</div>)}
-    </div>
-  );
-}
-```
+For more detailed debugging instructions, see the [MCP debugging guide](https://modelcontextprotocol.io/docs/tools/debugging).
 
 ## Contribution
 
@@ -154,5 +146,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Related Resources
 
-- [Model Context Protocol](https://modelcontextprotocol.io/) - Official MCP website with documentation and guides
-- [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk) - Official TypeScript implementation of the protocol
+- [Model Context Protocol](https://modelcontextprotocol.io/) - Official MCP documentation
+- [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk) - Official TypeScript implementation
+- [MCP Inspector](https://github.com/modelcontextprotocol/inspector) - Interactive tool for testing MCP servers

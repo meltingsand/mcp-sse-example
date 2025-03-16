@@ -1,3 +1,7 @@
+# Model files
+gemma*.task
+gemma*.bin
+
 # Logs
 logs
 *.log
