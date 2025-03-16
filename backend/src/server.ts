@@ -90,32 +90,56 @@ app.get("/debug", (req, res) => {
   });
 });
 
-// SSE route handler
-app.get("/sse", async (req, res) => {
-  // Set headers
+// SSE route handler - improved for proxy compatibility
+app.get("/sse", (req, res) => {
+  // Set headers required for SSE with proxies
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
 
-  // Create transport first
-  const sseTransport = new SSEServerTransport("/messages", res);
+  // Flush headers immediately to establish connection
+  res.flushHeaders();
 
-  // Get the sessionId from the transport itself
-  const sessionId = sseTransport.sessionId;
+  // Send an initial keepalive comment to help proxies
+  res.write(":keepalive\n\n");
+
+  // Create transport
+  const transport = new SSEServerTransport("/messages", res);
+  const sessionId = transport.sessionId;
   console.log(`New SSE connection established: ${sessionId}`);
 
-  // Store transport with its own ID
-  transports.set(sessionId, sseTransport);
+  // Store with correct sessionId
+  transports.set(sessionId, transport);
 
-  // Connect to server - don't modify response before this
-  await server.connect(sseTransport);
-  console.log(`Server connected to transport: ${sessionId}`);
+  // Implement a keepalive ping every 30 seconds
+  const keepAliveInterval = setInterval(() => {
+    if (res.writableEnded) {
+      clearInterval(keepAliveInterval);
+      return;
+    }
+    res.write(":ping\n\n");
+    console.log(`Sending keepalive ping for ${sessionId}`);
+  }, 30000);
 
   // Clean up on connection close
   req.on("close", () => {
     console.log(`Connection closed: ${sessionId}`);
+    clearInterval(keepAliveInterval);
     transports.delete(sessionId);
   });
+
+  // Connect to server
+  server
+    .connect(transport)
+    .then(() => {
+      console.log(`Server connected to transport: ${sessionId}`);
+    })
+    .catch((error: any) => {
+      console.error(`Error connecting server to transport: ${error.message}`);
+      clearInterval(keepAliveInterval);
+      res.end();
+    });
 });
 
 // Messages route handler

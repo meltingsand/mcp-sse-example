@@ -40,7 +40,8 @@ export function BraveSearch() {
       );
 
       const newTransport = new SSEClientTransport(
-        new URL("/sse", window.location.origin),
+        // new URL("/sse", window.location.origin),
+        new URL("/sse", "https://v4480gc4go8gookgok088w0s.nerding.cloud"),
         {
           requestInit: {
             headers: {
