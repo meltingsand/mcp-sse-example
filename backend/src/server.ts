@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import express from "express";
+import cors from "cors";
 import { z } from "zod";
 import { config } from "dotenv";
 
@@ -57,7 +58,24 @@ server.tool(
 // TODO: Add prompts
 
 const app = express();
+// Add CORS middleware
+app.use(cors());
+app.use(express.json());
+
 let transport: SSEServerTransport;
+
+// Add a root route handler
+app.get("/", (req, res) => {
+  res.json({
+    status: "online",
+    name: "MCP SSE Example Server",
+    endpoints: {
+      sse: "/sse",
+      messages: "/messages"
+    },
+    docs: "https://modelcontextprotocol.io/docs"
+  });
+});
 
 app.get("/sse", async (req, res) => {
   transport = new SSEServerTransport("/messages", res);
