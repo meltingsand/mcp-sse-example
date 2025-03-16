@@ -127,25 +127,37 @@ app.get("/sse", (req, res) => {
 // Messages route handler
 // @ts-expect-error
 app.post("/messages", (req, res) => {
-  // Use the sessionId from the query params
-  const sessionId = req.query.sessionId as string;
-
-  if (!sessionId) {
-    return res.status(400).json({ error: "Missing sessionId parameter" });
+  // Get the session ID parameter - note we're checking both sessionId (standard) 
+  // and connectionId (your custom implementation)
+  const sessionId = 
+    req.query.sessionId as string || 
+    req.query.connectionId as string;
+  
+  console.log(`Received message request with sessionId: ${sessionId}`);
+  console.log(`Message body:`, JSON.stringify(req.body));
+  console.log(`Available sessions:`, Array.from(transports.keys()));
+  
+  // If no sessionId provided, try to use the first available transport
+  let transport;
+  if (sessionId) {
+    transport = transports.get(sessionId);
+  } else if (transports.size > 0) {
+    // Fallback to first available transport
+    transport = transports.values().next().value;
+    console.log(`No sessionId provided, using first available: ${Array.from(transports.keys())[0]}`);
   }
-
-  const transport = transports.get(sessionId);
-
+  
   if (!transport) {
-    console.error(`No transport found for session: ${sessionId}`);
+    console.error(`No transport found for session: ${sessionId || 'any'}`);
     return res.status(400).json({ error: "No active SSE connection found" });
   }
-
+  
   // Handle the message
-  transport.handlePostMessage(req, res).catch((error) => {
-    console.error(`Error processing message: ${error.message}`);
-    res.status(500).json({ error: error.message });
-  });
+  transport.handlePostMessage(req, res)
+    .catch((error) => {
+      console.error(`Error processing message: ${error.message}`);
+      res.status(500).json({ error: error.message });
+    });
 });
 
 // Start server
