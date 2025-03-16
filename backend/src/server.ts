@@ -78,9 +78,27 @@ app.use(
   cors({
     origin: "*",
     methods: ["GET", "POST", "OPTIONS"],
-    credentials: false
+    credentials: false,
   })
 );
+
+// Add a simple root route handler
+app.get("/", (req, res) => {
+  res.json({
+    name: "MCP-WebAI Server",
+    version: "1.0.0",
+    status: "running",
+    endpoints: {
+      "/": "Server information (this response)",
+      "/sse": "Server-Sent Events endpoint for MCP connection",
+      "/messages": "POST endpoint for MCP messages",
+    },
+    tools: [
+      { name: "add", description: "Add two numbers together" },
+      { name: "search", description: "Search the web using Brave Search API" },
+    ],
+  });
+});
 
 let transport: SSEServerTransport;
 
