@@ -91,52 +91,45 @@ app.get("/debug", (req, res) => {
 });
 
 // SSE route handler
-app.get("/sse", (req, res) => {
-  // Set headers required for SSE
+app.get("/sse", async (req, res) => {
+  // Set headers
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
-  res.setHeader("X-Accel-Buffering", "no"); // For NGINX
 
-  // Generate a unique ID for this connection
-  const connectionId = Date.now().toString();
-  console.log(`New SSE connection established: ${connectionId}`);
-
-  // Create and store the transport
+  // Create transport first
   const sseTransport = new SSEServerTransport("/messages", res);
-  transports.set(connectionId, sseTransport);
+
+  // Get the sessionId from the transport itself
+  const sessionId = sseTransport.sessionId;
+  console.log(`New SSE connection established: ${sessionId}`);
+
+  // Store transport with its own ID
+  transports.set(sessionId, sseTransport);
+
+  // Connect to server - don't modify response before this
+  await server.connect(sseTransport);
+  console.log(`Server connected to transport: ${sessionId}`);
 
   // Clean up on connection close
   req.on("close", () => {
-    console.log(`Connection closed: ${connectionId}`);
-    transports.delete(connectionId);
+    console.log(`Connection closed: ${sessionId}`);
+    transports.delete(sessionId);
   });
-
-  // Connect the transport to the server (don't use await in the route handler)
-  server
-    .connect(sseTransport)
-    .then(() => {
-      console.log(`Server connected to transport: ${connectionId}`);
-    })
-    .catch((error) => {
-      console.error(`Error connecting server to transport: ${error.message}`);
-      res.end();
-    });
 });
 
 // Messages route handler
 // @ts-expect-error
 app.post("/messages", (req, res) => {
-  // Get the session ID parameter - note we're checking both sessionId (standard) 
+  // Get the session ID parameter - note we're checking both sessionId (standard)
   // and connectionId (your custom implementation)
-  const sessionId = 
-    req.query.sessionId as string || 
-    req.query.connectionId as string;
-  
+  const sessionId =
+    (req.query.sessionId as string) || (req.query.connectionId as string);
+
   console.log(`Received message request with sessionId: ${sessionId}`);
   console.log(`Message body:`, JSON.stringify(req.body));
   console.log(`Available sessions:`, Array.from(transports.keys()));
-  
+
   // If no sessionId provided, try to use the first available transport
   let transport;
   if (sessionId) {
@@ -144,20 +137,23 @@ app.post("/messages", (req, res) => {
   } else if (transports.size > 0) {
     // Fallback to first available transport
     transport = transports.values().next().value;
-    console.log(`No sessionId provided, using first available: ${Array.from(transports.keys())[0]}`);
+    console.log(
+      `No sessionId provided, using first available: ${
+        Array.from(transports.keys())[0]
+      }`
+    );
   }
-  
+
   if (!transport) {
-    console.error(`No transport found for session: ${sessionId || 'any'}`);
+    console.error(`No transport found for session: ${sessionId || "any"}`);
     return res.status(400).json({ error: "No active SSE connection found" });
   }
-  
+
   // Handle the message
-  transport.handlePostMessage(req, res)
-    .catch((error) => {
-      console.error(`Error processing message: ${error.message}`);
-      res.status(500).json({ error: error.message });
-    });
+  transport.handlePostMessage(req, res).catch((error) => {
+    console.error(`Error processing message: ${error.message}`);
+    res.status(500).json({ error: error.message });
+  });
 });
 
 // Start server
