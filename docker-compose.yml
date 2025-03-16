@@ -6,9 +6,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - target: 8000
-        published: 8000
-        mode: host
+      - '9000:3001'
+
     environment:
       - NODE_ENV=production
       - BRAVE_API_KEY=${BRAVE_API_KEY}
