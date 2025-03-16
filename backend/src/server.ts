@@ -125,6 +125,7 @@ app.get("/sse", (req, res) => {
 });
 
 // Messages route handler
+// @ts-expect-error
 app.post("/messages", (req, res) => {
   // Get the transport ID from the request
   const transportId =
