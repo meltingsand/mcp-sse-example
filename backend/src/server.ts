@@ -85,7 +85,7 @@ app.use(
 // Add a simple root route handler
 app.get("/", (req, res) => {
   res.json({
-    name: "MCP-WebAI Server",
+    name: "MCP SSE Server",
     version: "1.0.0",
     status: "running",
     endpoints: {
