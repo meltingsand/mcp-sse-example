@@ -1,26 +1,4 @@
-<think>I need to write a README for this codebase, which focuses on using MCP (Model Context Protocol) in WebAI. I have information about the project structure from project-structure.md and various search results about MCP frameworks and servers.
-
-Based on the provided information:
-
-1. The project structure has frontend (with public, src, assets, components) and src directories
-2. MCP (Model Context Protocol) seems to be a protocol for AI clients (like Claude Desktop)
-3. This specific project is about integrating MCP with WebAI
-
-From the web search results, I understand that:
-
-- MCP is a protocol used by Claude (Anthropic) and other AI models
-- MCP servers can be used to extend AI capabilities
-- There are frameworks like mcp-framework to build MCP servers
-- MCP servers can provide tools to AI clients
-
-I'll write a comprehensive README that:
-
-1. Explains what MCP-WebAI is
-2. Details the project structure
-3. Provides setup instructions
-4. Explains how to use the project
-5. Includes configuration information
-6. Adds relevant links and resources</think># MCP-WebAI
+# MCP-WebAI
 
 A framework for integrating Model Context Protocol (MCP) capabilities into web applications, allowing web-based AI interfaces to leverage MCP tools and services.
 
