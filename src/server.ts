@@ -16,11 +16,12 @@ const server = new McpServer({
   version: "1.0.0",
 });
 
-// Add an addition tool
+// Tool: Add two numbers
 server.tool("add", { a: z.number(), b: z.number() }, async ({ a, b }) => ({
   content: [{ type: "text", text: String(a + b) }],
 }));
 
+// Tool: Search via Brave API
 server.tool(
   "search",
   { query: z.string(), count: z.number().optional() },
@@ -57,7 +58,8 @@ server.tool(
     };
   }
 );
-// Add a dynamic greeting resource
+
+// Resource: Dynamic greeting
 server.resource(
   "greeting",
   new ResourceTemplate("greeting://{name}", { list: undefined }),
@@ -73,7 +75,7 @@ server.resource(
 
 const app = express();
 
-// Configure CORS middleware to allow all origins
+// CORS middleware
 app.use(
   cors({
     origin: "*",
@@ -82,7 +84,7 @@ app.use(
   })
 );
 
-// Add a simple root route handler
+// Root info route
 app.get("/", (req, res) => {
   res.json({
     name: "MCP SSE Server",
@@ -102,28 +104,30 @@ app.get("/", (req, res) => {
 
 let transport: SSEServerTransport;
 
+// ✅ Let n8n probe /messages if it tries a GET
+app.get("/messages", (req, res) => {
+  res.status(200).send("OK");
+});
+
+// ✅ Tool message receiver
+app.post("/messages", async (req, res) => {
+  await transport.handlePostMessage(req, res);
+});
+
+// ✅ SSE stream with proper endpoint announcement
 app.get("/sse", async (req, res) => {
-  // Set SSE headers
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
 
-  // 👇 Tell the client where to POST
+  // Tell MCP client where to send POSTs
   res.write(`event: endpoint\ndata: /messages\n\n`);
 
-  // 👇 You can still pass the same res to the transport
   transport = new SSEServerTransport("/messages", res);
   await server.connect(transport);
 });
 
-app.post("/messages", async (req, res) => {
-  // Note: to support multiple simultaneous connections, these messages will
-  // need to be routed to a specific matching transport. (This logic isn't
-  // implemented here, for simplicity.)
-  await transport.handlePostMessage(req, res);
-});
-
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`MCP SSE Server running on port ${PORT}`);
+  console.log(`✅ MCP SSE Server running on port ${PORT}`);
 });
