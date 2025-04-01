@@ -103,6 +103,15 @@ app.get("/", (req, res) => {
 let transport: SSEServerTransport;
 
 app.get("/sse", async (req, res) => {
+  // Set SSE headers
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  // 👇 Tell the client where to POST
+  res.write(`event: endpoint\ndata: /messages\n\n`);
+
+  // 👇 You can still pass the same res to the transport
   transport = new SSEServerTransport("/messages", res);
   await server.connect(transport);
 });
