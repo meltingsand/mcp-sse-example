@@ -100,7 +100,7 @@ app.get("/", (req, res) => {
       "/sse": "Server-Sent Events stream",
       "/messages": "POST endpoint for tool messages",
     },
-    tools: Object.keys(server.describe()),
+    tools: ["add", "search"],
   });
 });
 
@@ -130,8 +130,27 @@ app.get("/sse", async (req, res) => {
     await server.connect(transport);
     console.log("✅ server.connect() completed");
 
-    // Send tool list event for `List Tools` support
-    const tools = server.describe();
+    // Hardcoded tool list for List Tools operation
+    const tools = [
+      {
+        name: "add",
+        description: "Add two numbers together",
+        parameters: [
+          { name: "a", type: "number", description: "First number" },
+          { name: "b", type: "number", description: "Second number" }
+        ]
+      },
+      {
+        name: "search",
+        description: "Search the web using Brave Search API",
+        parameters: [
+          { name: "query", type: "string", description: "Search query" },
+          { name: "count", type: "number", description: "Optional number of results" }
+        ]
+      }
+    ];
+
+    res.write(`event: tools\ndata: ${JSON.stringify(tools)}\n\n`);
     console.log("📤 Sent tool list to client");
 
   } catch (err) {
