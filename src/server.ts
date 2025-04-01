@@ -132,7 +132,6 @@ app.get("/sse", async (req, res) => {
 
     // Send tool list event for `List Tools` support
     const tools = server.describe();
-    res.write(`event: tools\ndata: ${JSON.stringify(tools)}\n\n`);
     console.log("📤 Sent tool list to client");
 
   } catch (err) {
