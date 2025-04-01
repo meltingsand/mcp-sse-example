@@ -116,14 +116,10 @@ app.post("/messages", async (req, res) => {
 
 // ✅ SSE stream with proper endpoint announcement
 app.get("/sse", async (req, res) => {
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-
-  // Tell MCP client where to send POSTs
-  res.write(`event: endpoint\ndata: /messages\n\n`);
-
+  // 👇 Let the SDK handle headers
   transport = new SSEServerTransport("/messages", res);
+
+  // 👇 This will internally call res.write with event: endpoint
   await server.connect(transport);
 });
 
