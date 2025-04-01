@@ -128,3 +128,20 @@ app.get("/sse", async (req, res) => {
 
   try {
     await server.connect(transport);
+    console.log("✅ server.connect() completed");
+
+    // Send tool list event for `List Tools` support
+    const tools = server.describe();
+    res.write(`event: tools\ndata: ${JSON.stringify(tools)}\n\n`);
+    console.log("📤 Sent tool list to client");
+
+  } catch (err) {
+    console.error("❌ Error during server.connect:", err);
+    res.end();
+  }
+});
+
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => {
+  console.log(`✅ MCP SSE Server running on port ${PORT}`);
+});
