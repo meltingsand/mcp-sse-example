@@ -17,16 +17,20 @@ const server = new McpServer({
 });
 
 // Tool: Add two numbers
-server.tool("add", { a: z.number(), b: z.number() }, async ({ a, b }) => ({
-  content: [{ type: "text", text: String(a + b) }],
-}));
+server.tool("add", { a: z.number(), b: z.number() }, async ({ a, b }) => {
+  console.log("🧮 Running 'add' tool with a =", a, "b =", b);
+  return {
+    content: [{ type: "text", text: String(a + b) }],
+  };
+});
 
-// Tool: Search via Brave API
+// Tool: Search using Brave API
 server.tool(
   "search",
   { query: z.string(), count: z.number().optional() },
   async ({ query, count = 5 }: { query: string; count?: number }) => {
-    console.log("query==========>", query, count, process.env.BRAVE_API_KEY);
+    console.log("🌐 Running 'search' tool for query:", query);
+
     if (!process.env.BRAVE_API_KEY) {
       throw new Error("BRAVE_API_KEY environment variable is not set");
     }
@@ -74,6 +78,7 @@ server.resource(
 );
 
 const app = express();
+app.use(express.json());
 
 // CORS middleware
 app.use(
@@ -84,46 +89,42 @@ app.use(
   })
 );
 
-// Root info route
+// Root status route
 app.get("/", (req, res) => {
   res.json({
     name: "MCP SSE Server",
     version: "1.0.0",
     status: "running",
     endpoints: {
-      "/": "Server information (this response)",
-      "/sse": "Server-Sent Events endpoint for MCP connection",
-      "/messages": "POST endpoint for MCP messages",
+      "/": "Server status",
+      "/sse": "Server-Sent Events stream",
+      "/messages": "POST endpoint for tool messages",
     },
-    tools: [
-      { name: "add", description: "Add two numbers together" },
-      { name: "search", description: "Search the web using Brave Search API" },
-    ],
+    tools: Object.keys(server.describe()),
   });
 });
 
 let transport: SSEServerTransport;
 
-// ✅ Let n8n probe /messages if it tries a GET
+// Handle n8n probing /messages
 app.get("/messages", (req, res) => {
+  console.log("👋 GET /messages — n8n probe");
   res.status(200).send("OK");
 });
 
-// ✅ Tool message receiver
+// POST endpoint for tool execution
 app.post("/messages", async (req, res) => {
+  console.log("📨 POST /messages called");
+  console.log("🧾 Body:", JSON.stringify(req.body, null, 2));
   await transport.handlePostMessage(req, res);
+  console.log("✅ Message handled");
 });
 
-// ✅ SSE stream with proper endpoint announcement
+// SSE stream
 app.get("/sse", async (req, res) => {
-  // 👇 Let the SDK handle headers
+  console.log("🔌 GET /sse — stream requested");
+
   transport = new SSEServerTransport("/messages", res);
 
-  // 👇 This will internally call res.write with event: endpoint
-  await server.connect(transport);
-});
-
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`✅ MCP SSE Server running on port ${PORT}`);
-});
+  try {
+    await server.connect(transport);
